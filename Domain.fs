@@ -27,7 +27,6 @@ type GenFile = {
   Class: string list
 }
 
-
 let genProp tt  (prop:Property) valueOpt =
   [
     match tt with
@@ -35,13 +34,12 @@ let genProp tt  (prop:Property) valueOpt =
     | _ -> ()
     match tt with
     | Interface _ ->
-      yield "member"
+      yield! ["member";prop.Name]
     | Class ->
       if prop.FinalMutability = Immutable then
-        yield "__.member"
-      else yield "member val"
-    | _ ->()
-    yield prop.Name
+        yield! ["member";sprintf "__.%s" prop.Name]
+      else yield![ "member val";prop.Name]
+    | _ -> yield prop.Name
     match valueOpt with
     | None ->
       yield ":"
@@ -64,8 +62,8 @@ let genProp tt  (prop:Property) valueOpt =
 let genName tt name =
     match tt with
     |Class -> name
-    |Interface false -> sprintf "I%sR" name
-    |Interface true -> sprintf "I%sRW" name
+    |Interface true -> sprintf "I%sR" name
+    |Interface false -> sprintf "I%sRW" name
     |Record -> sprintf "%sRec" name
 let genDeclare tt name =
   let cons =
@@ -75,34 +73,20 @@ let genDeclare tt name =
   let naming = genName tt name
   sprintf "type %s%s=" naming cons
 
-// let defaultGenFile = {
-//   Namespace= null
-//   BaseName= null
-//   Properties= List.empty
-//   Interfaces= List.empty
-//   Class=List.empty
-// }
-
-// type GenFileBuilder() =
-//   member __.Yield (_:'a):GenFile = defaultGenFile value
-//   [<CustomOperation("id")>]
-//   member __.Namespace(gf, x)= {gf with Namespace = x}
-//   [<CustomOperation("basename")>]
-//   member __.BaseName(gf, x)= {gf with BaseName= x}
-//   [<CustomOperation("prop")>]
-//   member __.Prop(gf,(prop,tt))= {gf with Properties=genProp tt prop::gf.Properties}
 // a single record, interface, or class
 let genImplProp indent m (prop:Property):string list=
-    match m with
-    |Mutable ->
+    match m, prop.FinalMutability with
+    |Mutable, Mutable ->
       [
         sprintf "member this.%s" prop.Name
         indent 1 <| sprintf "with get()= this.%s" prop.Name
-        indent 1 <| sprintf "and set v= this.%s <- this.%s" prop.Name prop.Name
+        indent 1 <| sprintf "and set v= this.%s <- v" prop.Name
       ]
-    |Immutable ->
+    | _, Immutable
+    |Immutable,_ ->
       sprintf "member this.%s= this.%s" prop.Name prop.Name
       |> List.singleton
+
 type ToGenerate = {
   Name:string
   Properties:Property list
@@ -110,7 +94,7 @@ type ToGenerate = {
 let genInterfaceImpl indent name m props =
   [
       let isImmutable = match m with |Immutable -> true | _ -> false
-      yield sprintf "interface %s with" <| genName(TypeType.Interface isImmutable) name
+      yield sprintf "interface %s with" <| genName(Interface isImmutable) name
       let props' = props |> Seq.collect (genImplProp indent m >> List.map (indent 1))
       yield! props'
   ]
@@ -125,9 +109,9 @@ let genType (toGen:ToGenerate) tt indent =
   [
     yield genDeclare tt toGen.Name
     match tt with
-    | Record -> yield "{"
+    | Record -> yield indent 1 "{"
     | _ -> ()
-    yield! props |> Seq.map (indent 1)
+    yield! props |> Seq.map (indent 2)
     match tt with
     | Record -> yield "}"
     | _ -> ()
@@ -140,8 +124,8 @@ let genType (toGen:ToGenerate) tt indent =
       yield indent 1 "with"
       yield! genI Immutable 2
     | Class ->
-      yield! genI Immutable 1
-      yield! genI Mutable 1
+      yield! genI Mutable 2
+      yield! genI Immutable 2
     | _ -> ()
   ]
 
