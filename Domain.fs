@@ -1,31 +1,8 @@
-module Schema
+module Degenerate.Domain
 open System
+
 open Helpers
-// source opts: reflection, json, gen code(the way we've been doing it)
-// focus on DTO:
-// record, interfaces, and class
-type Mutability =
-  |Mutable
-  |Immutable
-type Property = {
-  Name:string
-  PropType:string
-  // Is mutable at class level? (cascades down)
-  FinalMutability:Mutability
-}
-
-type TypeType =
-  |Class
-  |Record
-  |Interface of readonly:bool
-
-type GenFile = {
-  Namespace: string
-  BaseName:string
-  Properties: string list
-  Interfaces: string list
-  Class: string list
-}
+open MetaGen
 
 let genProp tt  (prop:Property) valueOpt =
   [
@@ -59,12 +36,6 @@ let genProp tt  (prop:Property) valueOpt =
   ]
   |> delimit " "
 
-let genName tt name =
-    match tt with
-    |Class -> name
-    |Interface true -> sprintf "I%sR" name
-    |Interface false -> sprintf "I%sRW" name
-    |Record -> sprintf "%sRec" name
 let genDeclare tt name =
   let cons =
     match tt with
@@ -107,6 +78,7 @@ let genType (toGen:ToGenerate) tt indent =
         | _ -> genProp tt prop None
       )
   [
+    yield sprintf "/// %i Properties" toGen.Properties.Length
     yield genDeclare tt toGen.Name
     match tt with
     | Record -> yield indent 1 "{"
@@ -115,8 +87,8 @@ let genType (toGen:ToGenerate) tt indent =
     match tt with
     | Record -> yield "}"
     | _ -> ()
-    // consider inheriting I%sR interface
 
+    // consider inheriting I%sR interface
     // implementing interfaces
     let genI m i = genInterfaceImpl indent toGen.Name m toGen.Properties |> Seq.map(indent i)
     match tt with
@@ -137,6 +109,10 @@ let genAll toGen ns indent =
     yield! genType toGen (Interface false) indent
     yield String.Empty
     yield! genType toGen Record indent
+    yield String.Empty
+    // yield sprintf "module %sMeta =" toGen.Name
+    // yield! Degenerate.MetaGen.genPropMeta toGen.Properties |> Seq.map (indent 1)
+    yield! genModule indent toGen.Name toGen.Properties
     yield String.Empty
     yield! genType toGen Class indent
   ]

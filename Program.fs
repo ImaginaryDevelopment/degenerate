@@ -2,13 +2,13 @@
 open System
 
 open Helpers
-open Schema
+open Degenerate
+open Degenerate.Domain
 open Helpers.FS
 
 
 [<EntryPoint>]
 let main argv =
-    printfn "Hello World from F#!"
     let target = Environment.GetEnvironmentVariable("Degenerate_Target") |> Option.ofValueString
     let mutStr name = {Name=name;PropType="string";FinalMutability=Mutable}
     let mutInt name = {Name=name;PropType="int";FinalMutability=Mutable}

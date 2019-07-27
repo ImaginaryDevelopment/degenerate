@@ -14,6 +14,7 @@ let delimit (d:string) (x:string seq) =
   String.Join(d,values=Array.ofSeq x)
 let replace d r (x:string) =
   x.Replace(oldValue=d,newValue=r)
+let camel = Option.ofValueString >> Option.map(fun x -> x.[..0].ToLower() + x.[1..]) >> Option.defaultValue null
 let (|ValueString|NonValueString|) =
   function
   | x when String.IsNullOrWhiteSpace x -> NonValueString
